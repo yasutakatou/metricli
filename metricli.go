@@ -22,6 +22,7 @@ import (
 	"os/exec"
 	"regexp"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -259,6 +260,10 @@ func setStructs(configType, datas, decryptstr string, flag int, plainpassword, c
 							hosts = append(hosts, serverData{LABEL: strs[0], IP: strs[1], PORT: strs[2], USER: strs[3], PASSWD: pass, SHEBANG: strs[5]})
 							debugLog(v)
 						}
+					} else {
+						debugLog("add RULE: " + strs[0] + " " + strs[3] + " " + strs[1] + " " + pass + " " + strs[2])
+						hosts = append(hosts, serverData{LABEL: strs[0], IP: strs[1], PORT: strs[2], USER: strs[3], PASSWD: pass, SHEBANG: strs[5]})
+						debugLog(v)
 					}
 				case 1:
 					if len(strs) > 1 {
@@ -537,6 +542,38 @@ func scpDo(hostInt int, tmpFile, path string) bool {
 	return true
 }
 
+//FYI: https://qiita.com/shinofara/items/e5e78e6864a60dc851a6
+type FileInfos []os.FileInfo
+type ByName struct{ FileInfos }
+
+func (fi ByName) Len() int {
+	return len(fi.FileInfos)
+}
+func (fi ByName) Swap(i, j int) {
+	fi.FileInfos[i], fi.FileInfos[j] = fi.FileInfos[j], fi.FileInfos[i]
+}
+func (fi ByName) Less(i, j int) bool {
+	return fi.FileInfos[j].ModTime().Unix() < fi.FileInfos[i].ModTime().Unix()
+}
+
+func fileLists(currentdir string) []string {
+	var files []string
+	fileInfos, err := ioutil.ReadDir(currentdir)
+
+	if err != nil {
+		fmt.Errorf("Directory cannot read %s\n", err)
+		os.Exit(1)
+	}
+
+	sort.Sort(ByName{fileInfos})
+	for _, fileInfo := range fileInfos {
+		var findName = (fileInfo).Name()
+		files = append(files, findName)
+	}
+
+	return files
+}
+
 func doMetric(locate, host, metric string) string {
 	// [METRIC]
 	// RULE1	STDIN	Int	3	df -kh /
@@ -553,41 +590,52 @@ func doMetric(locate, host, metric string) string {
 		return ""
 	}
 
-	sshCommand := metrics[metricInt].COMMAND
-	tmpFile := "tmp." + metric
-	if needSCP == true {
-		writeFile(tmpFile+".bat", sshCommand)
-
-		scpFlag := false
-		for i := 0; i < RETRY; i++ {
-			if scpDo(hostInt, tmpFile+".bat", ".") == true {
-				scpFlag = true
-				break
-			}
-		}
-		if scpFlag == false {
-			return ""
-		}
-		sshCommand = hosts[hostInt].SHEBANG + " " + tmpFile + ".bat"
+	if linux == true {
+		locate = locate + "/"
+	} else {
+		locate = locate + "\\"
 	}
 
-	var err error
+	debugLog("locate: " + locate + " host: " + host + " metric: " + metric)
 
-	done := false
-	strs := ""
-	for i := 0; i < RETRY; i++ {
-		strs, done, err = sshDo(hosts[hostInt].USER, hosts[hostInt].IP, hosts[hostInt].PASSWD, hosts[hostInt].PORT, sshCommand)
-		if done == true && len(strs) > 0 {
-			break
-		}
-	}
-	if done == false {
-		return ""
-	}
-	if err != nil {
-		fmt.Println(err)
-		return ""
-	}
+	files := fileLists(locate)
+	fmt.Println(files)
 
-	return strs
+	// sshCommand := metrics[metricInt].COMMAND
+	// tmpFile := "tmp." + metric
+	// if needSCP == true {
+	// 	writeFile(tmpFile+".bat", sshCommand)
+
+	// 	scpFlag := false
+	// 	for i := 0; i < RETRY; i++ {
+	// 		if scpDo(hostInt, tmpFile+".bat", ".") == true {
+	// 			scpFlag = true
+	// 			break
+	// 		}
+	// 	}
+	// 	if scpFlag == false {
+	// 		return ""
+	// 	}
+	// 	sshCommand = hosts[hostInt].SHEBANG + " " + tmpFile + ".bat"
+	// }
+
+	// var err error
+
+	// done := false
+	// strs := ""
+	// for i := 0; i < RETRY; i++ {
+	// 	strs, done, err = sshDo(hosts[hostInt].USER, hosts[hostInt].IP, hosts[hostInt].PASSWD, hosts[hostInt].PORT, sshCommand)
+	// 	if done == true && len(strs) > 0 {
+	// 		break
+	// 	}
+	// }
+	// if done == false {
+	// 	return ""
+	// }
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	return ""
+	// }
+
+	return ""
 }
