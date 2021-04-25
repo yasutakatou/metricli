@@ -3,7 +3,7 @@
  *
  * @author    yasutakatou
  * @copyright 2021 yasutakatou
- * @license   xxx
+ * @license   Apache License Version 2.0, ICU License, ISC License
  */
 package main
 
@@ -140,10 +140,19 @@ func main() {
 
 func do(replaceStr, useShell string) {
 	for i := 0; i < len(defines); i++ {
-		debugLog(" -- [DEFINE] -- " + defines[i].HOST + " --")
+		if debug == false {
+			fmt.Println(" -- [DEFINE] -- " + defines[i].HOST + " --")
+		} else {
+			debugLog(" -- [DEFINE] -- " + defines[i].HOST + " --")
+		}
+
 		mkdir(defines[i].HOST)
 		for r := 0; r < len(defines[i].METRICS); r++ {
-			debugLog(" -- -- [METRIC] -- " + defines[i].METRICS[r] + " --")
+			if debug == false {
+				fmt.Println(" -- -- [METRIC] -- " + defines[i].METRICS[r] + " --")
+			} else {
+				debugLog(" -- -- [METRIC] -- " + defines[i].METRICS[r] + " --")
+			}
 
 			var locate string
 			if linux == true {
@@ -155,6 +164,12 @@ func do(replaceStr, useShell string) {
 
 			if result := doMetric(locate, defines[i].HOST, defines[i].METRICS[r]); result != "" {
 				if actionStr := actionCheck(defines[i].METRICS[r]); actionStr != "" {
+					if debug == false {
+						fmt.Println(" -- -- -- [ACTION] -- " + actionStr + " --")
+					} else {
+						debugLog(" -- -- -- [ACTION] -- " + actionStr + " --")
+					}
+
 					doAction(actionStr, replaceStr, result, useShell)
 				}
 			}
@@ -165,7 +180,11 @@ func do(replaceStr, useShell string) {
 func actionCheck(metricName string) string {
 	for i := 0; i < len(metrics); i++ {
 		if metrics[i].LABEL == metricName {
-			return metrics[i].ACTION
+			for r := 0; r < len(actions); r++ {
+				if actions[r].LABEL == metrics[i].ACTION {
+					return actions[r].COMMAND
+				}
+			}
 		}
 	}
 	return ""
@@ -203,7 +222,7 @@ func doAction(command, replaceStr, strs, useShell string) {
 		}
 	}
 
-	debugLog("output: " + out)
+	fmt.Println(out)
 }
 
 func mkdir(dir string) {
@@ -479,20 +498,39 @@ func hostCheck(hostName string) int {
 	return -1
 }
 
-func writeFile(filename, stra string) bool {
+func writeFile(filename, stra, command string, vFlag bool) string {
 	file, err := os.Create(filename)
 	if err != nil {
 		fmt.Println(err)
-		return false
+		return ""
 	}
 	defer file.Close()
 
-	_, err = file.WriteString(stra + "\n")
-	if err != nil {
-		fmt.Println(err)
-		return false
+	if vFlag == false {
+		_, err = file.WriteString(stra + "\n")
+		if err != nil {
+			fmt.Println(err)
+			return ""
+		}
 	}
-	return true
+
+	commandStr := strings.Replace(command, " ", "", -1)
+
+	for _, v := range regexp.MustCompile("\r\n|\n\r|\n|\r").Split(stra, -1) {
+		if len(v) > 0 {
+			strs := strings.Replace(v, " ", "", -1)
+
+			if strings.Index(strs, commandStr) == -1 {
+				_, err = file.WriteString(strs + "\n")
+				if err != nil {
+					fmt.Println(err)
+					return ""
+				}
+				return strs
+			}
+		}
+	}
+	return ""
 }
 
 func scpDo(hostInt int, tmpFile, path string) bool {
@@ -574,7 +612,7 @@ func fileLists(currentdir string, maxCnt int) []string {
 		var findName = (fileInfo).Name()
 		files = append(files, currentdir+findName)
 		cnt = cnt + 1
-		if cnt > maxCnt {
+		if cnt >= maxCnt {
 			break
 		}
 	}
@@ -586,7 +624,7 @@ func sshExec(metricInt, hostInt int) string {
 	sshCommand := metrics[metricInt].COMMAND
 	tmpFile := "tmp." + metrics[metricInt].LABEL
 	if needSCP == true {
-		writeFile(tmpFile+".bat", sshCommand)
+		writeFile(tmpFile+".bat", sshCommand, "", false)
 
 		scpFlag := false
 		for i := 0; i < RETRY; i++ {
@@ -643,7 +681,7 @@ func doMetric(locate, host, metric string) string {
 	const layout = "2006-01-02_15_04_05"
 	t := time.Now()
 	filename := "metricli_" + t.Format(layout)
-	writeFile(locate+filename, result)
+	result = writeFile(locate+filename, result, metrics[metricInt].COMMAND, true)
 
 	files := fileLists(locate, metrics[metricInt].VALUE)
 
@@ -656,16 +694,24 @@ func doMetric(locate, host, metric string) string {
 	switch metrics[metricInt].TYPE {
 	case "COUNT":
 		if checkCounts(files[0], files[len(files)-1], metricInt) == false {
+			debugLog("COUNT: false")
 			return result
 		}
+		debugLog("COUNT: ture")
 	case "AVERAGE":
 		if checkAverges(files, metricInt) == false {
+			debugLog("AVERAGE: false")
 			return result
 		}
+		debugLog("AVERAGE: true")
 	case "EXSITS":
+		debugLog("EXSITS: false")
 		if result != "" {
 			return result
 		}
+		debugLog("EXSITS: true")
+	default:
+		return ""
 	}
 	return ""
 }
@@ -689,7 +735,7 @@ func fileRead(fileName string, metricInt int) string {
 
 func checkCounts(aftFile, preFile string, metricInt int) bool {
 	valAft := fileRead(aftFile, metricInt)
-	debugLog("After val: " + valAft)
+	debugLog(aftFile + " After val: " + valAft)
 	aftInt, err := strconv.Atoi(valAft)
 
 	if err != nil {
@@ -697,7 +743,7 @@ func checkCounts(aftFile, preFile string, metricInt int) bool {
 	}
 
 	valPre := fileRead(preFile, metricInt)
-	debugLog("Pre val: " + valPre)
+	debugLog(preFile + " Pre val: " + valPre)
 	preInt, err := strconv.Atoi(valPre)
 
 	if err != nil {
@@ -723,7 +769,7 @@ func checkAverges(files []string, metricInt int) bool {
 		val := fileRead(files[i], metricInt)
 		valInt, err := strconv.Atoi(val)
 
-		if err != nil {
+		if err == nil {
 			ave = ave + valInt
 			if preInt == 0 {
 				preInt = valInt
@@ -732,6 +778,12 @@ func checkAverges(files []string, metricInt int) bool {
 	}
 
 	ave = ave / len(files)
+
+	if debug == true {
+		aveStr := strconv.Itoa(ave)
+		preStr := strconv.Itoa(preInt)
+		debugLog("Ave: " + aveStr + " Val: " + preStr)
+	}
 
 	if ave > preInt+metrics[metricInt].VALUE {
 		return false

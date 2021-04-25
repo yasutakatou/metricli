@@ -1,0 +1,14 @@
+[SERVER]
+local	127.0.0.1	22	fzk01	myPasswd	cmd /C
+[DEFINE]
+local	RULE1
+#192.168.0.220	RULE1	RULE3
+[METRIC]
+RULE1	STDIN	AVERAGE	3	ls | wc | awk "{print $1}"
+RULE2	LOG	COUNT	grep /var/messages | error
+RULE3	LOG	AVERAGE	10	dk -k /tmp
+RULE4	SLACK	EXSITS	1	grep -v INFO /var/log/messages
+[ACTION]
+STDIN	echo Alert! {}
+LOG	echo "{}" >> /tmp/log.log
+#SLACK	curl http://slac.com/xxxx {}
