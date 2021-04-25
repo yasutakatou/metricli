@@ -72,13 +72,13 @@ type actionData struct {
 }
 
 var (
-	debug, logging, linux, needSCP bool
-	hosts                          []serverData
-	defines                        []defineData
-	metrics                        []metricData
-	actions                        []actionData
-	path                           string
-	sshTimeout, RETRY              int
+	debug, logging, linux, needSCP, noDel bool
+	hosts                                 []serverData
+	defines                               []defineData
+	metrics                               []metricData
+	actions                               []actionData
+	path                                  string
+	sshTimeout, RETRY                     int
 )
 
 func main() {
@@ -95,6 +95,7 @@ func main() {
 	_sshTimeout := flag.Int("timeout", 10, "[-timeout=timeout count (second). ]")
 	_needSCP := flag.Bool("scp", true, "[-scp=need scp mode (true is enable)]")
 	_RETRY := flag.Int("retry", 10, "[-retry=retry counts.]")
+	_noDel := flag.Bool("noDel", true, "[-noDel=not delete old metrics (true is enable)]")
 
 	flag.Parse()
 
@@ -104,6 +105,7 @@ func main() {
 	sshTimeout = int(*_sshTimeout)
 	needSCP = bool(*_needSCP)
 	RETRY = int(*_RETRY)
+	noDel = bool(*_noDel)
 
 	if len(*_encrypt) > 0 && strings.Index(*_encrypt, ":") != -1 {
 		strs := strings.Split(*_encrypt, ":")
@@ -556,7 +558,7 @@ func (fi ByName) Less(i, j int) bool {
 	return fi.FileInfos[j].ModTime().Unix() < fi.FileInfos[i].ModTime().Unix()
 }
 
-func fileLists(currentdir string) []string {
+func fileLists(currentdir string, maxCnt int) []string {
 	var files []string
 	fileInfos, err := ioutil.ReadDir(currentdir)
 
@@ -565,22 +567,60 @@ func fileLists(currentdir string) []string {
 		os.Exit(1)
 	}
 
+	cnt := 0
 	sort.Sort(ByName{fileInfos})
 	for _, fileInfo := range fileInfos {
 		var findName = (fileInfo).Name()
 		files = append(files, findName)
+		cnt = cnt + 1
+		if cnt > maxCnt {
+			break
+		}
 	}
 
 	return files
 }
 
-func doMetric(locate, host, metric string) string {
-	// [METRIC]
-	// RULE1	STDIN	Int	3	df -kh /
-	// RULE2	LOG	Srt	3	grep /var/messages | error
-	// RULE3	LOG	OutInt	10	dk -k /tmp
-	// RULE4	SLACK	OutStr	1	grep -v INFO /var/log/messages
+func sshExec(metricInt, hostInt int) string {
+	sshCommand := metrics[metricInt].COMMAND
+	tmpFile := "tmp." + metrics[metricInt].LABEL
+	if needSCP == true {
+		writeFile(tmpFile+".bat", sshCommand)
 
+		scpFlag := false
+		for i := 0; i < RETRY; i++ {
+			if scpDo(hostInt, tmpFile+".bat", ".") == true {
+				scpFlag = true
+				break
+			}
+		}
+		if scpFlag == false {
+			return ""
+		}
+		sshCommand = hosts[hostInt].SHEBANG + " " + tmpFile + ".bat"
+	}
+
+	var err error
+
+	done := false
+	strs := ""
+	for i := 0; i < RETRY; i++ {
+		strs, done, err = sshDo(hosts[hostInt].USER, hosts[hostInt].IP, hosts[hostInt].PASSWD, hosts[hostInt].PORT, sshCommand)
+		if done == true && len(strs) > 0 {
+			break
+		}
+	}
+	if done == false {
+		return ""
+	}
+	if err != nil {
+		fmt.Println(err)
+		return ""
+	}
+	return strs
+}
+
+func doMetric(locate, host, metric string) string {
 	metricInt := metricCheck(metric)
 	if metricInt == -1 {
 		return ""
@@ -598,44 +638,98 @@ func doMetric(locate, host, metric string) string {
 
 	debugLog("locate: " + locate + " host: " + host + " metric: " + metric)
 
-	files := fileLists(locate)
-	fmt.Println(files)
+	result := sshExec(metricInt, hostInt)
+	const layout = "2006-01-02_15_04_05"
+	t := time.Now()
+	filename := "metricli_" + t.Format(layout)
+	writeFile(locate+filename, result)
 
-	// sshCommand := metrics[metricInt].COMMAND
-	// tmpFile := "tmp." + metric
-	// if needSCP == true {
-	// 	writeFile(tmpFile+".bat", sshCommand)
+	files := fileLists(locate, metrics[metricInt].VALUE)
 
-	// 	scpFlag := false
-	// 	for i := 0; i < RETRY; i++ {
-	// 		if scpDo(hostInt, tmpFile+".bat", ".") == true {
-	// 			scpFlag = true
-	// 			break
-	// 		}
-	// 	}
-	// 	if scpFlag == false {
-	// 		return ""
-	// 	}
-	// 	sshCommand = hosts[hostInt].SHEBANG + " " + tmpFile + ".bat"
-	// }
+	if noDel == false && len(files) > metrics[metricInt].VALUE {
+		if err := os.Remove(files[len(files)]); err != nil {
+			fmt.Println(err)
+		}
+	}
 
-	// var err error
-
-	// done := false
-	// strs := ""
-	// for i := 0; i < RETRY; i++ {
-	// 	strs, done, err = sshDo(hosts[hostInt].USER, hosts[hostInt].IP, hosts[hostInt].PASSWD, hosts[hostInt].PORT, sshCommand)
-	// 	if done == true && len(strs) > 0 {
-	// 		break
-	// 	}
-	// }
-	// if done == false {
-	// 	return ""
-	// }
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	return ""
-	// }
-
+	switch metrics[metricInt].TYPE {
+	case "COUNT":
+		if checkCounts(files[0], files[len(files)-1], metricInt) == false {
+			return result
+		}
+	case "AVERAGE":
+		if checkAverges(files, metricInt) == false {
+			return result
+		}
+	case "EXSITS":
+		if result != "" {
+			return result
+		}
+	}
 	return ""
+}
+
+func fileRead(fileName string) string {
+	bytes, err := ioutil.ReadFile(fileName)
+	if err != nil {
+		panic(err)
+	}
+
+	debugLog("read: " + fileName + " value: " + string(bytes))
+	return string(bytes)
+}
+
+func checkCounts(aftFile, preFile string, metricInt int) bool {
+	valAft := fileRead(aftFile)
+	aftInt, err := strconv.Atoi(valAft)
+
+	if err != nil {
+		return false
+	}
+
+	valPre := fileRead(preFile)
+	preInt, err := strconv.Atoi(valPre)
+
+	if err != nil {
+		return false
+	}
+
+	if aftInt > preInt+metrics[metricInt].VALUE {
+		return false
+	}
+
+	if aftInt < preInt-metrics[metricInt].VALUE {
+		return false
+	}
+
+	return true
+}
+
+func checkAverges(files []string, metricInt int) bool {
+	ave := 0
+	preInt := 0
+
+	for i := 0; i < len(files); i++ {
+		val := fileRead(files[i])
+		valInt, err := strconv.Atoi(val)
+
+		if err != nil {
+			ave = ave + valInt
+			if preInt == 0 {
+				preInt = valInt
+			}
+		}
+	}
+
+	ave = ave / len(files)
+
+	if ave > preInt+metrics[metricInt].VALUE {
+		return false
+	}
+
+	if ave < preInt-metrics[metricInt].VALUE {
+		return false
+	}
+
+	return true
 }
