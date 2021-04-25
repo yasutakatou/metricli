@@ -8,6 +8,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
@@ -419,7 +420,7 @@ func sshDo(User, Host, Passwd, Port, Command string) (string, bool, error) {
 
 	debugLog("ssh: " + Command)
 
-	stdout, stderr, done, err := ssh.Run(Command, ssh.Timeout*time.Second)
+	stdout, stderr, done, err := ssh.Run(Command, time.Duration(sshTimeout)*time.Second)
 
 	debugLog("stdout is :" + stdout + ";   stderr is :" + stderr)
 
@@ -571,7 +572,7 @@ func fileLists(currentdir string, maxCnt int) []string {
 	sort.Sort(ByName{fileInfos})
 	for _, fileInfo := range fileInfos {
 		var findName = (fileInfo).Name()
-		files = append(files, findName)
+		files = append(files, currentdir+findName)
 		cnt = cnt + 1
 		if cnt > maxCnt {
 			break
@@ -669,25 +670,34 @@ func doMetric(locate, host, metric string) string {
 	return ""
 }
 
-func fileRead(fileName string) string {
-	bytes, err := ioutil.ReadFile(fileName)
-	if err != nil {
-		panic(err)
-	}
+func fileRead(fileName string, metricInt int) string {
+	data, _ := os.Open(fileName)
+	defer data.Close()
 
-	debugLog("read: " + fileName + " value: " + string(bytes))
-	return string(bytes)
+	commandStr := strings.Replace(metrics[metricInt].COMMAND, " ", "", -1)
+
+	scanner := bufio.NewScanner(data)
+	for scanner.Scan() {
+		strs := strings.Replace(scanner.Text(), " ", "", -1)
+
+		if strings.Index(strs, commandStr) == -1 {
+			return strs
+		}
+	}
+	return ""
 }
 
 func checkCounts(aftFile, preFile string, metricInt int) bool {
-	valAft := fileRead(aftFile)
+	valAft := fileRead(aftFile, metricInt)
+	debugLog("After val: " + valAft)
 	aftInt, err := strconv.Atoi(valAft)
 
 	if err != nil {
 		return false
 	}
 
-	valPre := fileRead(preFile)
+	valPre := fileRead(preFile, metricInt)
+	debugLog("Pre val: " + valPre)
 	preInt, err := strconv.Atoi(valPre)
 
 	if err != nil {
@@ -710,7 +720,7 @@ func checkAverges(files []string, metricInt int) bool {
 	preInt := 0
 
 	for i := 0; i < len(files); i++ {
-		val := fileRead(files[i])
+		val := fileRead(files[i], metricInt)
 		valInt, err := strconv.Atoi(val)
 
 		if err != nil {
