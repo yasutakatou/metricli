@@ -6,7 +6,7 @@ Realize metric monitoring even in terminals.
 
 For example, you want to do metric monitoring easily.
 However, implementing a tool like datadog requires a lot of work and convincing your team.
-Wouldn't it be nice if you could check it every morning when you go to make your coffee?
+Wouldn't it be nice if you could check it every morning when you go to make your coffee like do execute commands?
 This tool will make that feeling come true.
 
 --
@@ -16,6 +16,7 @@ The tool compares the results of past runs using a set of rules.
 Detects items that spike or exceed the average value.
 Threshold crossings will be reported with a set action.
 In other words, this tool will be useful for SRE-like metric monitoring for teams that can't use SaaS monitoring tools and are operating and monitoring legacy systems!
+When you come back with your coffee brewed, you're ready to do a metrics assessment with your team at the morning meeting.
 
 -- 
 
@@ -29,19 +30,22 @@ The major rules are as follows
 COUNT
 	Check the difference between the oldest value and the newest value.
 	Since this is a comparison of old and new, values in the middle will not be evaluated.
-	Therefore, it is advisable to set it to a resource that will increase steadily, such as disk space.
+	Therefore, it is advisable to set it to a resource that will increase steadily, disk empty space.
 AVERAGE
 	Check the difference from the mean. In other words, it is useful for checking items whose values are likely to change extremely.
 	Obtains the average value within a set period and evaluates the difference from the latest value.
+	It can be used to monitor things like the number of connections that suddenly become high.
 EXSITS
 	If it is not an empty value, the action will be performed. It exists as a replacement for the old message monitor.
+
+Based on the characteristics of these checking methods, consider the detection commands to be executed on the OS.
+OS knowledge is required. For certainty of used technology.　:)
 
 --
 
 optiions
 
 ```
-Usage of C:\Users\fzk01\AppData\Local\Temp\go-build1412382980\b001\exe\metricli.exe:
   -check
         [-check=check rules. if connect fail to not use rule. (true is enable)]
   -config string
@@ -73,19 +77,67 @@ Usage of C:\Users\fzk01\AppData\Local\Temp\go-build1412382980\b001\exe\metricli.
 ```
 
 ### -check
+
+Check the host rules. Host rules that fail to access will be excluded from the check.
+
 ### -config
+
+Specify the configuration file.
+
 ### -debug
+
+Run in the mode that outputs various logs.
+
 ### -decrypt
+
+Specifies the password for compounding when the password is encrypted.
+
 ### -encrypt
+
+Output the cryptographic keywords.
+
+note) If this option is specified, the program will exit after outputting the keywords.
+
 ### -log
+
+Make it log output. Specify the file name.
+
 ### -noDel
+
+This mode does not delete logs that are not in the check range.
+
+note) Since it only erases the log one period ago, it is better to combine it with other methods such as cron for accurate rotation.
+
 ### -path
+
+The path to output the log.
+
 ### -plainpassword
+
+This is the mode in which the password field in the configuration is not compounded and the string is used as the password.
+
+note) Of course, being able to see the configuration means that the password will be leaked.
+
 ### -replace
+
+In the action, define the string to be replaced by the execution result.
+
 ### -retry
+
+The number of retries for SSH commands.
+
 ### -scp
+
+This is the mode to send batches via SCP. When this is turned on, the monitoring command is executed after the batch is sent, which slows down the operation.
+The disadvantage of turning it off is that double quotation marks cannot be specified in the monitoring command.
+
 ### -shell
+
+Specifies the shell prompt to be used for locally run actions
+
 ### -timeout
+
+Specify the timeout period after throwing a command via SSH.
 
 # FYIs
 
