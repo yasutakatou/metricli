@@ -265,7 +265,7 @@ func setStructs(configType, datas, decryptstr string, flag int, plainpassword, c
 					if plainpassword == true || Exists(strs[4]) == true {
 						pass = strs[4]
 					} else {
-						passTmp, err := decrypt(strs[4], []byte(decryptstr))
+						passTmp, err := decrypt(strs[4], []byte(addSpace(decryptstr)))
 						if err != nil {
 							fmt.Println("WARN: not password decrypt!: ", strs[4])
 							fmt.Println(err)
