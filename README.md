@@ -2,18 +2,41 @@
 
 **Realize metric monitoring even in terminals.**
 
-# Issue
+# solution
 
 　In case of you want to monitor servers metrics easily, implementing a tool like datadog requires a lot of work and convincing your team. Wouldn't it be nice if you could check it every morning between you go to make your coffee like do execute commands? **This tool will make that feeling come true**.
 
-# Feature
+# feature
 
 　Basicly, The tool get the server to be monitored to execute a command via SSH, and check difference.The tool compares the results of past runs using a set of rules. Detects items that spike or exceed the average value. Threshold crossings will be reported with a set action.<br>
 (For example, If you want to use the slack, you can do.)
 
 　In other words, this tool will be useful for SRE-like metric monitoring for teams that can't use SaaS monitoring tools and are operating and monitoring legacy systems. When you come back with your coffee brewed, **you're ready to do a metrics assessment with your team at the morning meeting!**
 
-# Description
+# installation
+
+If you want to put it under the path, you can use the following.
+
+```
+go get github.com/yasutakatou/metricli
+```
+
+If you want to create a binary and copy it yourself, use the following.
+
+```
+git clone https://github.com/yasutakatou/metricli
+cd metricli
+go build .
+```
+
+[or download binary from release page](https://github.com/yasutakatou/metricli/releases).<br>
+save binary file, copy to entryed execute path directory.
+
+# uninstall
+
+delete that binary. del or rm command. (it's simple!)
+
+# description
 
 　The tool triggered by what changes and how much, so it works regardless of the importance of the message content. Make sure you understand the nature of the rules you set. It is necessary to set consideration the transition of resources, not the error messages.
 
@@ -35,7 +58,7 @@ It can be used to monitor things like the number of connections that suddenly be
 Based on the characteristics of these checking methods, consider the detection commands to be executed on the OS.<br>
 So, OS knowledge is required.　:)
 
-# Config file
+# config file
 
 Configs format is **tab split values**. The definition is ignored if you put sharp(#) at the beginning.
 
@@ -122,7 +145,7 @@ LOG	echo "{}" >> /tmp/log.log
 #SLACK	curl http://slac.com/xxxx {}
 ```
 
-# Optiion
+# options
 
 ```
   -check
@@ -240,7 +263,7 @@ Specify the timeout period after throwing a command via SSH.
 [Golangで、ファイル一覧取得（最新順出力）](https://qiita.com/shinofara/items/e5e78e6864a60dc851a6)<br>
 [Goで標準出力をキャプチャする](https://journal.lampetty.net/entry/capturing-stdout-in-golang)<br>
 
-# License
+# license
 
 Apache License Version 2.0<br>
 ICU License<br>
