@@ -42,7 +42,7 @@ delete that binary. del or rm command. (it's simple!)
 
 ## The major rules are as follows
 
-threshold value is evaluated **above or below**.
+threshold value is evaluated **above difference** or **below defference**.
 
 ### COUNT
 **Check the difference between the oldest value and the newest value**.<br>
