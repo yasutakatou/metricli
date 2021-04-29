@@ -4,42 +4,39 @@ Realize metric monitoring even in terminals.
 
 (WIP..)
 
-For example, you want to do metric monitoring easily.
-However, implementing a tool like datadog requires a lot of work and convincing your team.
-Wouldn't it be nice if you could check it every morning when you go to make your coffee like do execute commands?
-This tool will make that feeling come true.
+In case of you want to monitor servers metrics easily, implementing a tool like datadog requires a lot of work and convincing your team. Wouldn't it be nice if you could check it every morning between you go to make your coffee like do execute commands? This tool will make that feeling come true.
 
 --
 
-The tool asks the server to be monitored to execute a command via SSH.
+Basicly, The tool get the server to be monitored to execute a command via SSH, and check difference.
 The tool compares the results of past runs using a set of rules.
 Detects items that spike or exceed the average value.
 Threshold crossings will be reported with a set action.
-In other words, this tool will be useful for SRE-like metric monitoring for teams that can't use SaaS monitoring tools and are operating and monitoring legacy systems!
-When you come back with your coffee brewed, you're ready to do a metrics assessment with your team at the morning meeting.
+(For example, If you want to use the slack, you can do.)
+In other words, this tool will be useful for SRE-like metric monitoring for teams that can't use SaaS monitoring tools and are operating and monitoring legacy systems.
+When you come back with your coffee brewed, you're ready to do a metrics assessment with your team at the morning meeting!
 
 -- 
 
-The tool will only check the number of times the rule is matched.
-In other words, it is triggered by what changes and how much, so it works regardless of the importance of the message content.
+The tool triggered by what changes and how much, so it works regardless of the importance of the message content.
 Make sure you understand the nature of the rules you set.
-It is necessary to check the transition of resources, not the error messages.
+It is necessary to set consideration the transition of resources, not the error messages.
 
 The major rules are as follows
 
 COUNT
 	Check the difference between the oldest value and the newest value.
 	Since this is a comparison of old and new, values in the middle will not be evaluated.
-	Therefore, it is advisable to set it to a resource that will increase steadily, disk empty space.
+	Therefore, it is advisable to set it to a resource that will increase steadily, for example, disk empty space.
 AVERAGE
 	Check the difference from the mean. In other words, it is useful for checking items whose values are likely to change extremely.
-	Obtains the average value within a set period and evaluates the difference from the latest value.
+	Obtains the average value by seted rule and evaluates the difference from the latest value.
 	It can be used to monitor things like the number of connections that suddenly become high.
 EXSITS
-	If it is not an empty value, the action will be performed. It exists as a replacement for the old message monitor.
+	If it is not an empty value, the action will be performed. It exists for alert message monitoring.
 
 Based on the characteristics of these checking methods, consider the detection commands to be executed on the OS.
-OS knowledge is required. For certainty of used technology.　:)
+So, OS knowledge is required.　:)
 
 --
 
@@ -100,13 +97,13 @@ note) If this option is specified, the program will exit after outputting the ke
 
 ### -log
 
-Make it log output. Specify the file name.
+Specify the log file name.
 
 ### -noDel
 
 This mode does not delete logs that are not in the check range.
 
-note) Since it only erases the log one period ago, it is better to combine it with other methods such as cron for accurate rotation.
+note) Since it only erases the log one generation ago, it is better to combine it with other methods such as cron for accurate rotation.
 
 ### -path
 
@@ -120,7 +117,7 @@ note) Of course, being able to see the configuration means that the password wil
 
 ### -replace
 
-In the action, define the string to be replaced by the execution result.
+Define the string to be replaced by the execution result at actions.
 
 ### -retry
 
@@ -129,11 +126,13 @@ The number of retries for SSH commands.
 ### -scp
 
 This is the mode to send batches via SCP. When this is turned on, the monitoring command is executed after the batch is sent, which slows down the operation.
-The disadvantage of turning it off is that double quotation marks cannot be specified in the monitoring command.
+In exchange, The disadvantage of turning it off is that double quotation marks cannot be specified in the monitoring command.
 
 ### -shell
 
 Specifies the shell prompt to be used for locally run actions
+
+note) On Windows, auto select "cmd /C".
 
 ### -timeout
 
